@@ -70,6 +70,36 @@ CREATE TABLE feedback_responses (
 
 ALTER TABLE feedback_responses ENABLE ROW LEVEL SECURITY;
 
+-- Create profiles table if it doesn't exist
+CREATE TABLE IF NOT EXISTS profiles (
+  id uuid PRIMARY KEY REFERENCES auth.users(id),
+  email text UNIQUE NOT NULL,
+  full_name text NOT NULL,
+  student_id text,
+  centre text,
+  role text NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'faculty', 'admin')),
+  created_at timestamptz DEFAULT now()
+);
+
+-- Add indexes
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
+CREATE INDEX IF NOT EXISTS idx_profiles_student_id ON profiles(student_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
+
+-- Enable RLS
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Users can view own profile"
+  ON profiles
+  FOR SELECT
+  USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own profile"
+  ON profiles
+  FOR UPDATE
+  USING (auth.uid() = id);
+
 -- Add RLS policies
 CREATE POLICY "Users can view their own feedback submissions"
   ON feedback_submissions

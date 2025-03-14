@@ -1,13 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
-import { Home, MessageSquare, LogOut, ChevronDown } from 'lucide-react';
+import { Home, BookOpen, MessageSquare, Bell, LogOut, ChevronDown, Settings, Book, User as UserIcon, HelpCircle } from 'lucide-react';
 import FeedbackForm from './FeedbackForm';
+import Navbar from '../components/Navbar';
+import { Box, Container, Paper, Typography, Button, List, ListItem, 
+         ListItemIcon, ListItemText, Collapse, CircularProgress,
+         Chip, Divider, Avatar } from '@mui/material';
+import { styled } from '@mui/material/styles';
 
 interface Profile {
   full_name: string;
   student_id: string;
   centre: string;
+  role: string; // Add role to Profile interface
 }
 
 interface Course {
@@ -30,9 +36,48 @@ interface FeedbackSubmission {
   end_date: string;
 }
 
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  timestamp: string;
+  isRead: boolean;
+}
+
 interface DashboardProps {
   user: User;
 }
+
+const SidebarWrapper = styled(Box)(({ theme }) => ({
+  width: 256,
+  position: 'fixed',
+  top: 64,
+  height: 'calc(100vh - 64px)',
+  backgroundColor: theme.palette.background.paper,
+  boxShadow: theme.shadows[2],
+  overflowY: 'auto',
+  zIndex: 10
+}));
+
+const MainContent = styled(Box)(({ theme }) => ({
+  marginLeft: 256,
+  marginRight: 320,
+  padding: theme.spacing(4),
+  backgroundColor: theme.palette.grey[50],
+  minHeight: 'calc(100vh - 64px)'
+}));
+
+const RightPanel = styled(Box)(({ theme }) => ({
+  width: 320,
+  position: 'fixed',
+  top: 64,
+  right: 0,
+  height: 'calc(100vh - 64px)',
+  backgroundColor: theme.palette.background.paper,
+  padding: theme.spacing(3),
+  overflowY: 'auto',
+  zIndex: 10
+}));
 
 export default function Dashboard({ user }: DashboardProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -41,6 +86,23 @@ export default function Dashboard({ user }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('feedbacks');
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackSubmission | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([
+    {
+      id: '1',
+      title: 'New Feedback Available',
+      message: 'Core Java feedback is now available for submission',
+      timestamp: new Date().toISOString(),
+      isRead: false
+    },
+    {
+      id: '2',
+      title: 'Feedback Due',
+      message: 'Operating Systems feedback due in 2 days',
+      timestamp: new Date().toISOString(),
+      isRead: true
+    }
+  ]);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
 
   useEffect(() => {
     getProfile();
@@ -103,10 +165,7 @@ export default function Dashboard({ user }: DashboardProps) {
 
           return {
             id: existingFeedback?.id || `${course.id}-${type}`,
-            course: {
-              ...course,
-              faculty: course.faculty ? course.faculty : null
-            },
+            course: course,
             feedback_type: type,
             status: existingFeedback?.status || 'not_started',
             submitted_at: existingFeedback?.submitted_at || null,
@@ -144,9 +203,9 @@ export default function Dashboard({ user }: DashboardProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
+      <Box display="flex" alignItems="center" justifyContent="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
     );
   }
 
@@ -162,84 +221,34 @@ export default function Dashboard({ user }: DashboardProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Navbar */}
-      <nav className="bg-blue-600 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <img src="https://www.cdac.in/img/cdac-logo.png" alt="CDAC Logo" className="h-8 brightness-0 invert" />
-              <span className="ml-2 text-xl font-semibold text-white">Student Dashboard</span>
-            </div>
-            <div className="flex items-center">
-              <button
-                onClick={handleLogout}
-                className="flex items-center text-white hover:text-gray-200"
-              >
-                <LogOut className="h-5 w-5 mr-1" />
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <Box>
+      <Navbar />
+      
+      {/* Left Sidebar */}
+      <SidebarWrapper>
+        <List>
+          <ListItem button onClick={() => setOpenMenu(openMenu === 'general' ? null : 'general')}>
+            <ListItemIcon><Home /></ListItemIcon>
+            <ListItemText primary="General" />
+            <ChevronDown />
+          </ListItem>
+          <Collapse in={openMenu === 'general'}>
+            <List component="div" disablePadding>
+              <ListItem button sx={{ pl: 4 }}>
+                <ListItemIcon><MessageSquare /></ListItemIcon>
+                <ListItemText primary="Feedbacks" />
+              </ListItem>
+            </List>
+          </Collapse>
+        </List>
+      </SidebarWrapper>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <div className="w-64 bg-white shadow-md min-h-[calc(100vh-4rem)]">
-          <div className="p-4">
-            <div className="text-center mb-6">
-              <div className="w-20 h-20 rounded-full bg-gray-200 mx-auto mb-2 flex items-center justify-center">
-                <img
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${profile?.full_name || ''}`}
-                  alt="Profile"
-                  className="w-full h-full rounded-full"
-                />
-              </div>
-              <h2 className="text-lg font-semibold">{profile?.full_name}</h2>
-              <p className="text-sm text-gray-600">{profile?.student_id}</p>
-              <p className="text-sm text-gray-600">{profile?.centre}</p>
-            </div>
-
-            <ul className="space-y-1">
-              <li>
-                <button
-                  onClick={() => setActiveSection('general')}
-                  className={`w-full flex items-center p-2 text-gray-600 hover:bg-gray-100 rounded ${activeSection === 'general' ? 'bg-gray-100' : ''}`}
-                >
-                  <Home className="h-5 w-5 mr-2" />
-                  <span className="flex-1 text-left">General</span>
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setActiveSection('feedbacks')}
-                  className={`w-full flex items-center p-2 text-gray-600 hover:bg-gray-100 rounded ${activeSection === 'feedbacks' ? 'bg-gray-100' : ''}`}
-                >
-                  <MessageSquare className="h-5 w-5 mr-2" />
-                  <span className="flex-1 text-left">Feedbacks</span>
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-                {activeSection === 'feedbacks' && (
-                  <ul className="ml-8 mt-1 space-y-1">
-                    <li>
-                      <a href="#" className="block p-2 text-sm text-gray-600 hover:bg-gray-100 rounded">
-                        Feedbacks
-                      </a>
-                    </li>
-                  </ul>
-                )}
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 p-8">
+      {/* Main Content */}
+      <MainContent>
+        <Container maxWidth="lg">
           {activeSection === 'feedbacks' && !selectedFeedback && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-semibold mb-6">Feedbacks</h2>
+            <Paper elevation={1} sx={{ p: 3 }}>
+              <Typography variant="h5" gutterBottom>Feedbacks</Typography>
               <div className="space-y-6">
                 {courses.map((course, courseIndex) => (
                   <div key={course.id} className="border-b pb-4 last:border-b-0">
@@ -250,12 +259,13 @@ export default function Dashboard({ user }: DashboardProps) {
                       {feedbacks
                         .filter(feedback => feedback.course.id === course.id)
                         .map(feedback => (
-                          <div
-                            key={`${feedback.course.id}-${feedback.feedback_type}`}
-                            className={`pl-4 ${feedback.status !== 'submitted' && feedback.status !== 'expired'
+                          <div 
+                            key={`${feedback.course.id}-${feedback.feedback_type}`} 
+                            className={`pl-4 ${
+                              feedback.status !== 'submitted' && feedback.status !== 'expired'
                                 ? 'cursor-pointer hover:bg-gray-50'
                                 : ''
-                              }`}
+                            }`}
                             onClick={() => handleFeedbackClick(feedback)}
                           >
                             <div className="flex items-center justify-between text-sm text-gray-600">
@@ -270,11 +280,12 @@ export default function Dashboard({ user }: DashboardProps) {
                                   </>
                                 )}
                               </div>
-                              <span className={`ml-2 px-2 py-1 text-xs rounded ${feedback.status === 'submitted' ? 'bg-green-100 text-green-800' :
-                                  feedback.status === 'pending' ? 'bg-red-100 text-red-800' :
-                                    feedback.status === 'expired' ? 'bg-orange-100 text-orange-800' :
-                                      'bg-blue-100 text-blue-800'
-                                }`}>
+                              <span className={`ml-2 px-2 py-1 text-xs rounded ${
+                                feedback.status === 'submitted' ? 'bg-green-100 text-green-800' :
+                                feedback.status === 'pending' ? 'bg-red-100 text-red-800' :
+                                feedback.status === 'expired' ? 'bg-orange-100 text-orange-800' :
+                                'bg-blue-100 text-blue-800'
+                              }`}>
                                 {feedback.status.charAt(0).toUpperCase() + feedback.status.slice(1)}
                               </span>
                             </div>
@@ -287,7 +298,7 @@ export default function Dashboard({ user }: DashboardProps) {
                   </div>
                 ))}
               </div>
-            </div>
+            </Paper>
           )}
 
           {activeSection === 'feedbacks' && selectedFeedback && (
@@ -297,8 +308,45 @@ export default function Dashboard({ user }: DashboardProps) {
               onSubmit={handleFeedbackSubmitted}
             />
           )}
-        </div>
-      </div>
-    </div>
+        </Container>
+      </MainContent>
+
+      {/* Right Panel */}
+      <RightPanel>
+        <Box textAlign="center" mb={4}>
+          <Avatar
+            src={`https://api.dicebear.com/7.x/initials/svg?seed=${profile?.full_name || ''}`}
+            sx={{ width: 96, height: 96, mx: 'auto', mb: 2 }}
+          />
+          <Typography variant="h6">{profile?.full_name}</Typography>
+          <Typography variant="body2" color="primary">{profile?.student_id}</Typography>
+          <Typography variant="body2" color="text.secondary">{profile?.centre}</Typography>
+          <Typography variant="body2" sx={{ mt: 1, textTransform: 'capitalize' }}>
+            {profile?.role || 'Student'}
+          </Typography>
+        </Box>
+
+        <Divider />
+
+        <Box mt={3}>
+          <Typography variant="h6" gutterBottom>Notifications</Typography>
+          <div className="space-y-3">
+            {notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`p-3 rounded-lg transition-colors cursor-pointer
+                  ${notification.isRead ? 'bg-gray-50' : 'bg-blue-50'}`}
+              >
+                <h4 className="font-medium text-gray-800">{notification.title}</h4>
+                <p className="text-sm text-gray-600">{notification.message}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {new Date(notification.timestamp).toLocaleDateString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Box>
+      </RightPanel>
+    </Box>
   );
 }
